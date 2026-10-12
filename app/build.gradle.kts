@@ -71,6 +71,16 @@ android {
             }
         }
     }
+    splits {
+        // One APK per ABI, so a release download carries only the native engine the device
+        // runs, plus a universal APK for anyone unsure which one they need.
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+            isUniversalApk = true
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

@@ -132,6 +132,38 @@ export RELEASE_CERT_SHA256=$(keytool -list -v -keystore <ks> -alias <alias> \
 
 Leave it unset and the check compiles out, exactly as it does for debug builds. It used to be a constant in `native-lib.cpp`, which silently pinned every release to whichever machine last edited the file; because the check is fail-closed, a build signed with any other key then reported its own signature as tampered on every device. Absent is safer than wrong.
 
+Every build produces one APK per ABI (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`) plus a universal APK, under `app/build/outputs/apk/<buildType>/`.
+
+### Releases
+
+`.github/workflows/release.yml` builds and publishes releases. Pushing a tag `v<versionName>`, for example `v3.1`, runs the unit tests, builds a signed release APK for each ABI plus the universal one, and attaches them with a `SHA256SUMS.txt` to a GitHub release for that tag. A tag with a hyphen, such as `v3.1-beta1`, is published as a pre-release. The tag has to match `versionName` in `app/build.gradle.kts` or the workflow stops, so bump `versionName` and `versionCode` in the commit you tag:
+
+```bash
+git tag v3.1
+git push origin v3.1
+```
+
+Running the workflow by hand from the Actions tab builds the same APKs as a workflow artifact and publishes nothing, which is the way to check the signing secrets before a real release.
+
+The workflow needs four repository secrets, under Settings → Secrets and variables → Actions:
+
+| Secret | Value |
+|---------------------|----------------------------------------------------------|
+| `KEYSTORE_BASE64` | the keystore file, base64-encoded: `base64 -w0 release.jks` on Linux, `base64 -i release.jks` on macOS |
+| `KEYSTORE_PASSWORD` | the keystore password |
+| `KEY_ALIAS` | the alias of the signing key |
+| `KEY_PASSWORD` | the key password; for a PKCS12 keystore, the keystore password again |
+
+To create a keystore:
+
+```bash
+keytool -genkeypair -keystore release.jks -alias pifdetector -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Keep the keystore and its passwords somewhere other than the repository. Android only installs an update signed with the same key, so a lost keystore means every user has to uninstall before they can move to a release signed with a new one.
+
+`RELEASE_CERT_SHA256` is not a secret. The workflow derives it from the keystore, so the signature check is always compiled against the key that actually signs, and it checks every APK with `apksigner` against that digest before anything is published.
+
 ## Requirements
 
 - Android 7.0+ (API 24)
