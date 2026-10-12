@@ -97,10 +97,14 @@ jobs:
           mkdir -p dist
           count=0
           while IFS=$'\t' read -r file abi; do
-            digest=$("$apksigner" verify --print-certs "$out/$file" \
-              | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
-            if [ "$digest" != "$RELEASE_CERT_SHA256" ]; then
-              echo "::error::$file is signed with '$digest', expected '$RELEASE_CERT_SHA256'."
+            certs=$("$apksigner" verify --print-certs "$out/$file")
+            # build-tools 37 prints "V2 Signer: certificate SHA-256 digest:" where earlier
+            # versions print "Signer #1 certificate SHA-256 digest:", so match only the part
+            # both share. Every signer line must carry the one expected digest.
+            digests=$(sed -nE 's/^.*certificate SHA-256 digest: ([0-9a-f]+)$/\1/p' <<< "$certs" | sort -u)
+            if [ "$digests" != "$RELEASE_CERT_SHA256" ]; then
+              echo "::error::$file is signed with '$digests', expected '$RELEASE_CERT_SHA256'."
+              echo "$certs"
               exit 1
             fi
             cp "$out/$file" "dist/PIF-Detector-$label-$abi.apk"
