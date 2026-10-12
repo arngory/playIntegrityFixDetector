@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Release signing keys must never be committed; CI reads the keystore from a secret.
+*.jks
+*.keystore
+*.p12
